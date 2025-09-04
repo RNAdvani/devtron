@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPC Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #cccccc;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #2d2d30;
+            padding: 12px 16px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background: #1177bb;
+        }
+
+        .btn.secondary {
+            background: #5f6368;
+        }
+
+        .btn.secondary:hover {
+            background: #6c757d;
+        }
+
+        .status-bar {
+            background: #252526;
+            padding: 8px 16px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #dc3545;
+        }
+
+        .status.connected .status-dot {
+            background: #28a745;
+        }
+
+        .tabs {
+            display: flex;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .tab {
+            padding: 12px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #ffffff;
+            border-bottom-color: #0e639c;
+            background: #37373d;
+        }
+
+        .tab:hover {
+            background: #37373d;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .channel-stats {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .stats-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #ffffff;
+        }
+
+        .channel-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .channel-name {
+            font-size: 13px;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .channel-meta {
+            font-size: 11px;
+            color: #888;
+            display: flex;
+            gap: 12px;
+        }
+
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .tab-content {
+            flex: 1;
+            display: none;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        /* Logs Panel */
+        .logs-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .timeline-header {
+            background: #2d2d30;
+            padding: 8px 16px;
+            border-bottom: 1px solid #3e3e42;
+            font-size: 11px;
+            color: #cccccc;
+            flex-shrink: 0;
+        }
+
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0;
+            min-height: 0;
+        }
+
+        .empty-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #888;
+            font-size: 14px;
+            min-height: 200px;
+        }
+
+        .log-entry {
+            border-bottom: 1px solid #3e3e42;
+            transition: background-color 0.2s;
+            position: relative;
+        }
+
+        .log-entry:hover {
+            background: #252526;
+        }
+
+        .log-entry.expanded {
+            background: #252526;
+        }
+
+        .log-entry.new {
+            animation: highlight 1s ease-out;
+        }
+
+        @keyframes highlight {
+            0% { background: #0e639c33; }
+            100% { background: transparent; }
+        }
+
+        .log-header {
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .log-method {
+            width: 60px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 2px;
+            margin-right: 12px;
+        }
+
+        .method-handle {
+            background: #0e639c;
+            color: white;
+        }
+
+        .method-on {
+            background: #28a745;
+            color: white;
+        }
+
+        .method-register {
+            background: #6f42c1;
+            color: white;
+        }
+
+        .log-channel {
+            flex: 1;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            color: #ffffff;
+        }
+
+        .log-timing {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .timing-bar {
+            width: 120px;
+            height: 4px;
+            background: #3e3e42;
+            border-radius: 2px;
+            position: relative;
+        }
+
+        .timing-fill {
+            height: 100%;
+            background: #0e639c;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .expand-icon {
+            margin-left: 8px;
+            transition: transform 0.2s;
+            color: #888;
+        }
+
+        .log-entry.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        .log-details {
+            display: none;
+            padding: 0 16px 16px 16px;
+            background: #1a1a1a;
+        }
+
+        .log-entry.expanded .log-details {
+            display: block;
+        }
+
+        .detail-section {
+            margin-bottom: 12px;
+        }
+
+        .detail-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .detail-content {
+            background: #252526;
+            padding: 8px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .json-key {
+            color: #9cdcfe;
+        }
+
+        .json-string {
+            color: #ce9178;
+        }
+
+        .json-number {
+            color: #b5cea8;
+        }
+
+        .json-boolean {
+            color: #569cd6;
+        }
+
+        .performance-badge {
+            font-size: 10px;
+            padding: 2px 4px;
+            border-radius: 2px;
+            margin-left: 8px;
+        }
+
+        .perf-fast {
+            background: #28a745;
+            color: white;
+        }
+
+        .perf-medium {
+            background: #ffc107;
+            color: black;
+        }
+
+        .perf-slow {
+            background: #dc3545;
+            color: white;
+        }
+
+        /* Graph Panel */
+        .graph-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .graph-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #3e3e42;
+            flex-shrink: 0;
+        }
+
+        .graph-header h3 {
+            color: #ffffff;
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .graph-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .graph-container {
+            flex: 1;
+            background: #252526;
+            margin: 16px;
+            border-radius: 4px;
+            padding: 20px;
+            overflow: auto;
+            position: relative;
+            min-height: 0;
+        }
+
+        /* Tree Graph Styles */
+        .tree-graph {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+            min-height: 100%;
+        }
+
+        .service-node {
+            background: #2d2d30;
+            border: 2px solid #0e639c;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .service-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .service-stats {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+
+        .event-children {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-left: 40px;
+            position: relative;
+        }
+
+        .event-children::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #0e639c;
+        }
+
+        .event-node {
+            background: #37373d;
+            border: 1px solid #5f6368;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 120px;
+        }
+
+        .event-node::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 50%;
+            width: 28px;
+            height: 2px;
+            background: #0e639c;
+            transform: translateY(-50%);
+        }
+
+        .event-node:hover {
+            background: #464649;
+            border-color: #0e639c;
+        }
+
+        .event-node.active {
+            background: #0e639c;
+            border-color: #1177bb;
+            color: white;
+        }
+
+        .event-name {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .event-stats {
+            font-size: 10px;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .event-node.active .event-stats {
+            color: #cccccc;
+        }
+
+        /* Graph Legend */
+        .graph-legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 12px;
+            font-size: 11px;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        .legend-service {
+            background: #0e639c;
+        }
+
+        .legend-event {
+            background: #37373d;
+            border: 1px solid #5f6368;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>IPC Monitor</h1>
+        <div class="header-controls">
+            <button class="btn secondary" id="clearBtn">Clear</button>
+            <button class="btn" id="exportBtn">Export</button>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="status" id="status">
+            <div class="status-dot"></div>
+            <span>Waiting for connection...</span>
+        </div>
+        <div>Total: <span id="totalCount">0</span> messages</div>
+        <div>Avg Duration: <span id="avgDuration">0ms</span></div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="logs">Logs</div>
+        <div class="tab" data-tab="graph">Service Graph</div>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <div class="channel-stats">
+                <div class="stats-title">Channel Statistics</div>
+                <div id="channelStats"></div>
+            </div>
+        </div>
+
+        <div class="content-area">
+            <!-- Logs Tab -->
+            <div class="tab-content active" id="logs">
+                <div class="logs-panel">
+                    <div class="timeline-header">
+                        Timeline View - Real-time IPC Communication
+                    </div>
+                    <div class="log-container" id="logContainer">
+                        <div class="empty-state">
+                            No IPC messages yet. Interact with your Electron app to see messages here.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graph Tab -->
+            <div class="tab-content" id="graph">
+                <div class="graph-panel">
+                    <div class="graph-header">
+                        <h3>IPC Service Graph</h3>
+                        <div class="graph-controls">
+                            <button class="btn secondary" id="expandAllBtn">Expand All</button>
+                            <button class="btn secondary" id="collapseAllBtn">Collapse All</button>
+                        </div>
+                    </div>
+                    <div class="graph-container" id="graphContainer">
+                        <div class="tree-graph" id="treeGraph">
+                            <div class="empty-state">
+                                No IPC services detected yet. Start your Electron app to see the service graph.
+                            </div>
+                        </div>
+                        <div class="graph-legend">
+                            <div class="legend-title">Legend</div>
+                            <div class="legend-item">
+                                <div class="legend-color legend-service"></div>
+                                <span>Service Root</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color legend-event"></div>
+                                <span>Event Handler</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="panel.js"></script>
+</body>
+</html>

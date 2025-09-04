@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Electron IPC Monitor",
+  "version": "1.0.0",
+  "description": "Monitor IPC communications in Electron apps",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "devtools_page": "devtools.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png"
+  }
+}

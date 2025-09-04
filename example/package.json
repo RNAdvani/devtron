@@ -1,0 +1,23 @@
+{
+  "name": "test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/example/main.js",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build:ts": "tsc -p .",
+    "build": "npm run clean && npm run build:ts && npm run copy:extension",
+    "copy:extension": "cpx \"../extension/**/*\" dist/extension",
+    "start": "npm run build && electron .",
+    "dev": "tsc -p . --watch"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.6",
+    "@types/node": "^24.3.1",
+    "electron": "^38.0.0",
+    "rimraf": "^5.0.0"
+  },
+  "dependencies": {
+    "cpx": "^1.5.0"
+  }
+}
